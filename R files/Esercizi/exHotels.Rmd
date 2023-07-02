@@ -1,0 +1,79 @@
+---
+title: "EsHotelsLinearRegression"
+author: "Marco Bresciani"
+date: '2022-08-10'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## I dati nel ﬁle hotel.csv contengono informazioni sulla temperatura (X) e sul livello di occupazione di
+tre hotel (Y) in tre diverse citt`a.
+
+```{r}
+hotels<-read.csv(file="datasets/hotels.csv", header=TRUE)
+names(hotels)[3]<-"Temp"
+names(hotels)[4]<-"Occ"
+```
+
+## 1. Si producano graﬁci di dispersione (o altri graﬁci che si ritengono utili) per valutare la relazione tra
+le variabili presenti nel dataset
+
+```{r}
+summary(hotels)
+temperature<-hotels$Temp
+occupation<-hotels$Occ
+city<-hotels$City
+month<-hotels$Month
+plot(temperature, occupation)
+plot(month, temperature)
+```
+
+## Si stimi un modello lineare in cui si assume che il tasso di occupazione degli alberghi dipenda dalla
+temperatura: si dia un’interpretazione del modello stimato
+
+```{r}
+fit<-lm(Occ~Temp, data=hotels)
+plot(fit)
+summary(fit)
+```
+Facendo un'analisi del modello lineare fit, pare non esserci alcuna relazione di tipo lineare tra la variabile predittore e la variabile risposta, inoltre notiamo dal p-value della temperatura come essa non sia un predittore statisticamente significativo per l'occupazione
+Inoltre a primo acchito notiamo anche Adjiusted R-Squared che non ci da notizie positive sulla bontà del modello
+
+## Si stimino separatamente tre modelli lineari per ogni citt`a per studiare come il tasso di occupazione degli alberghi dipende dalla temperatura. Si dia un’interpretazione dei tre modelli confrontando i risultati con quelli ottenuti al punto 2.
+```{r}
+hotel_Mallorca<-subset(hotels, City=="Mallorca", select=c("Month","Temp", "Occ"))
+hotel_Davos<-subset(hotels, City=="Davos", select=c("Month","Temp", "Occ"))
+hotel_Basel<-subset(hotels, City=="Basel", select=c("Month","Temp", "Occ"))
+
+
+
+fitMallorca<-lm(Occ~Temp, data=hotel_Mallorca)
+fitDavos<-lm(Occ~Temp, data=hotel_Davos)
+fitBasel<-lm(Occ~Temp, data=hotel_Basel)
+
+
+plot(hotel_Mallorca$Temp,hotel_Mallorca$Occ, col="orange", pch=16)
+abline(fitMallorca, lwd=2.5, col="red")
+plot(hotel_Davos$Temp,hotel_Davos$Occ, col="blue",  pch=16)
+abline(fitDavos, lwd=2.5, col="red")
+plot(hotel_Basel$Temp,hotel_Basel$Occ, col="green",  pch=16)
+abline(fitBasel, lwd=2.5, col="red")
+
+
+summary(fitMallorca)
+summary(fitDavos)
+summary(fitBasel)
+```
+
+```{r}
+fit_updated<-update(fit, . ~ . + I(Temp^2))
+par(mfrow=c(2,2))
+plot(fit_updated)
+boxcox(fit_updated)
+fit_updated <- lm(log(Occ) ~ Temp + I(Temp^2), data = hotels)
+plot(fit_updated)
+```
+

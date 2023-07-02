@@ -1,0 +1,232 @@
+---
+title: " GLMs in R: an introduction"
+author: "Ilaria Prosdocimi"
+output: 
+  html_document: 
+    toc: yes
+---
+
+
+Il dataset `patents.txt` contiene informazioni raccolte dall'ufficio brevetti dell'UE su alcune caratteristiche dei brevetti, tra cui il numero di citazioni, se è stata presentata un'opposizione al brevetto, l'anno in cui il brevetto è stato depositato e l'informazione se il brevetto è nel settore bio-farmaceutico. (Il dataset è stato derivato dal dataset sulle patenti utilizzato nel libro [*Regression* di Fahrmeir et al.](https://www.uni-goettingen.de/de/regression+-+models%2c+methods+and+applications/550514.html). 
+
+```{r}
+dat <- read.table("datasets/patents.txt")
+dat$biopharm <- factor(dat$biopharm)
+summary(dat)
+```
+
+
+# La modellazione di dati binari 
+
+Ci concentriamo ora sulla variabile `opposed`, un indicatore che ha valore "opposed" e "not-opposed". Diamo un'occhiata alle caratteristiche della variabile: 
+
+```{r}
+summary(dat$opposed)
+table(dat$opposed)
+```
+```{r}
+glm(opposed~year, data=dat, family=binomial)
+dat$numopp<-ifelse(dat$opposed == 'opposed', 1,0)
+
+plot(jitter(numopp,amount=0.2) ~ jitter(year, amount=0.2), data=dat)
+
+```
+
+```{r}
+#trasformo opposed in un factor 0 1 invece che farlo a manp
+dat$fopp<-factor(dat$opposed)
+fit_bin<-glm(fopp~year, data=dat, family=binomial(link="logit")) #posso cambiare la link function
+```
+
+```{r}
+summary(fit_bin)
+dat$yearsSince1979 <- dat$year -1979
+fit_bin<-glm(fopp~yearsSince1979, data=dat, family=binomial(link="logit")) #posso cambiare la link function
+```
+Da dove vengono gli errori degli stimatori??
+```{r}
+X<-model.matrix(fit_bin)
+lpred<-coef(fit_bin)[1]+coef(fit_bin)[2] * dat$yearsSince1979
+V <-diag(exp(lpred)/(1+exp(lpred))^2)
+
+solve(t(X) %*% V %*% X)
+
+#oppure : radice quadrata della matrice di covarianza come nei modelli lineari
+sqrt(diag(vcov(fit_bin)))
+```
+Possiamo costruire intervalli di confidenza
+```{r}
+confint.default(fit_bin)
+#o
+fit_bin$coefficients[2] + qnorm(c(0.025,0.975))*sqrt(diag(vcov(fit_bin)))[2]
+#intervallo approssimato
+```
+```{r}
+nd<-data.frame(yearsSince1979 = c(1,2,17,18))
+lpred_<-coef(fit_bin)[1]+coef(fit_bin)[2] * dat$yearsSince1979
+lpred_[2]-lpred_[1]; lpred_[4]-lpred_[3]; 
+
+predict(fit_bin, newdata = nd, type="link")
+
+rpred<-predict(fit_bin, newdata = nd, type="response")
+#il risultati arrivano da
+exp(lpred)/(1+exp(lpred))
+
+```
+
+Visualizziamo
+```{r}
+plot(dat$yearsSince1979,jitter(dat$numopp, amount=0.2))
+lines(dat$yearsSince1979, predict(fit_bin, type = "response"), col=2)
+```
+```{r}
+nd<-data.frame(yearsSince1979=seq(-100,100))
+plot(nd$yearsSince1979, predict(fit_bin, type = "response", newdata=nd), type="l",col=2)
+```
+
+Proviamo ad usare più predittori
+
+```{r}
+fit_bin1<-glm(fopp~yearsSince1979+biopharm, data=dat, family=binomial)
+fit_bin2<-glm(fopp~yearsSince1979*biopharm, data=dat, family=binomial)
+
+logLik(fit_bin1);logLik(fit_bin2)
+AIC(fit_bin1);AIC(fit_bin2)
+```
+NB: - predict può stimare sia la link function che la variabile risposta
+    - fitted applicato al modello mostra i valori applicati al predittore sulla scala della risposta e non
+      in scala della linked
+    -
+
+
+
+
+NB:variabili_conteggio -> poisson
+
+# Un modello per il numero di citazioni 
+
+```{r}
+
+```
+
+
+Ci concentriamo ora sulla variabile `ncit`, il numero di citazioni ricevute da un brevetto. Le citazioni sono in qualche modo una misura del successo di un brevetto: desideriamo verficare se i brevetti depositati recentemente hanno più successo. 
+`ncit` è una variabile che misura dei conteggi: possiamo assumere che segua una distribuzione di Poisson. Diamo un'occhiata ai dati: 
+```{r}
+# notice we already use yearSince1979
+plot(ncit~yearsSince1979, data = dat) 
+
+#uso jitter per visualizzare meglio, perche i punti sono sovrapposti nel grafico normale e quindi li trslo un po' per avere una migliore percezione di dove si concentrano i punti
+plot(jitter(ncit, amount = 0.2)~jitter(yearsSince1979,amount=0.2), data=dat)
+```
+
+Difficile sapere quanti punti ci sono in ogni combinazione - usiamo jitter
+
+```{r}
+plot(jitter(ncit, amount = 0.2)~jitter(yearsSince1979, amount = 0.2), 
+     data = dat) 
+```
+
+Non un effetto chiarissimo, ma forse le citazioni di brevetti presentati di recente sono relativamente meno (hanno avuto meno tempo per essere citate). Iniziamo comunque con un modello semplice per capire come lavorare con modelli con dati di conteggio: 
+
+```{r}
+fit_pois<-glm(ncit~yearsSince1979, data=dat, family=poisson)
+summary(fit_pois)
+```
+```{r}
+#effetto negativo di since1979
+plot(sort(dat$yearsSince1979), predict(fit_pois), type="l")
+plot(sort(dat$yearsSince1979), predict(fit_pois, type = "r"))
+```
+```{r}
+nd_<- data.frame(yearsSince1979 = c(1,2,17,18))
+lpred_<-predict(fit_pois, newdata = nd)
+diff(lpred_)
+rpred<- predict(fit_pois, newdata = nd, type="response")
+rpred[2]/rpred[1]
+rpred[4]/rpred[3]
+exp(coef(fit_pois)[2])
+```
+
+Se x1=x0 e x2=x0+c allora
+
+exp(B0 + B1*x)
+exp(B0 + B1*x0 + B1*c) 
+
+exp(B0 + B1*x) * exp(B1*c) / exp(B0+B1x)
+
+
+
+Proviamo a costruire un modello piu complicato
+```{r}
+fit_pois_quad <- glm(ncit ~fopp + biopharm + poly(yearsSince1979,2) , family=poisson, data=dat)
+summary(fit_pois_quad)
+```
+```{r}
+nd__ <- data.frame(yearsSince1979=seq(0,20), biopharm="0", fopp="not-opposed") 
+plot(nd__$yearsSince1979, predict(fit_pois_quad, type="response", newdata=nd__), type="l")
+```
+```{r}
+#confrontiamo due modelli annidati con anova, per i modelli non annidati uso AIC o BIC
+anova(fit_pois, fit_pois_quad, test="LRT")
+deviance(fit_pois) #devianza residua
+fit_pois$null.deviance#devianza nulla
+
+fit_pois$deviance - fit_pois_quad$deviance
+
+2*(logLik(fit_pois_quad) - logLik(fit_pois)) #nei gml i risultati sono approssimati, per modelli lineari sono risultati esatti
+
+```
+
+Modellazione di proporzioni usando binomiale
+```{r}
+byYear<-data.frame(
+    npatent=tapply(dat$numopp, dat$year, length),
+    numopposed=tapply(dat$numopp, dat$year, sum),
+    year=tapply(dat$year, dat$year, unique)
+)
+
+#ora devo indicare a r i parametri della binomiale (o gli do la proporzione di succssi per ogni anno oppure posso dare 2 colonne in cui ci sono il numero di successi e fallimenti (posso derivarmi quest'ultima colonna))
+
+byYear$notOpposed = byYear$npatent - byYear$numopposed
+#oppure la proporzione
+byYear$propOpposed<-byYear$numopposed/byYear$npatent
+
+summary(glm(propOpposed~year, data=byYear, family=binomial, weights=npatent))
+summary(glm(cbind(numopposed, notOpposed)~year, data=byYear, family=binomial, weights=npatent))
+```
+Verifica della teoria tramite simulazione
+
+In un GML dobbiamo fare 2 scelte :
+
+~ distribuzione : binomiale o poisson bernulli
+~ funzione legame
+~ (i predittori)
+
+Simuliamo dati da una Binomiale con funzione legame logit e un solo predittore
+```{r}
+n<- 60
+x <- sort(runif(n, 0,1) )#predittore
+set.seed(12)
+
+beta_true <- c(-5,10)
+plot(x, beta_true[1]+ beta_true[2]*x)
+plot(x, exp(beta_true[1]+ beta_true[2]*x)/(1+ exp(beta_true[1]+ beta_true[2]*x)))
+lines(x, binomial()$linkinv(beta_true[1]+ beta_true[2]*x))
+
+
+y_sim<-rbinom(n,200,binomial()$linkinv(beta_true[1]+ beta_true[2]*x))
+plot(x, y_sim)
+glm(cbind(y_sim, 200-y_sim) ~x , family=binomial)
+
+for (i in 1:500){
+  y_sim<-rbinom(n,200,binomial()$linkinv(beta_true[1]+ beta_true[2]*x))
+  beta_sim<-rbind(beta_sim, 
+                  coef(glm(cbind(y_sim, 200-y_sim) ~x , family=binomial)))
+}
+
+```
+
+
+
+

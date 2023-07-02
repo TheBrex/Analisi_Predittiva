@@ -1,0 +1,47 @@
+---
+title: "Lab04"
+author: "Marco Bresciani"
+date: '2022-08-09'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# read the data
+fl <- "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
+autompg = read.table(fl, quote = "\"",
+comment.char = "", stringsAsFactors = FALSE)
+# give the dataframe headers
+colnames(autompg) <- c("mpg", "cyl", "disp", "hp", "wt",
+"acc", "year", "origin", "name")
+# remove missing data, which is stored as "?"
+autompg <-subset(autompg, autompg$hp != "?")
+# remove the plymouth reliant, as it causes some issues
+autompg <- subset(autompg, autompg$name != "plymouth reliant")
+# give the dataset row names, based on the engine, year and name
+rownames(autompg) <- paste(autompg$cyl, "cylinder",
+autompg$year, autompg$name)
+# remove the variable for name, as well as origin
+autompg <- subset(autompg,
+select = c("mpg", "cyl", "disp", "hp", "wt", "acc", "year"))
+# change horsepower from character to numeric
+autompg$hp <- as.numeric(autompg$hp)
+```
+
+```{r}
+par(mfrow=c(1,2), bty="l",pch=16)
+plot(mpg~wt, data= autompg)
+plot(mpg~year, data= autompg)
+```
+
+# STIMIAMO MODELLO LINEARE
+y=β0+β1wt+β2year
+
+```{r}
+fit<-lm(mpg~wt+year, data=autompg)
+summary(fit)
+```
+

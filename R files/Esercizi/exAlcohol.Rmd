@@ -1,0 +1,135 @@
+---
+title: "EsAlcoholLinearRegression"
+author: "Marco Bresciani"
+date: '2022-08-08'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## 1. Si produca un graﬁco dei dati. La relazione tra le variabili in esame appare lineare?
+```{r}
+grains<-read.table("datasets/grains.dat", header=TRUE)
+model<-lm(alcohol~nitrogen, data=grains)
+plot(alcohol~nitrogen, data=grains)
+summary(model)
+```
+La relazione appare lineare, vista la negatività di β, possiamo dire che le due variabili siano correlate negativamene
+
+## 2. Si dia una stima puntuale per α e β.
+
+```{r}
+Beta<-cov(grains$alcohol,grains$nitrogen) / var(grains$nitrogen)
+alpha<-mean(mean(grains$alcohol) - Beta * mean(grains$nitrogen))
+alpha
+Beta
+```
+## 3. Si dia una stima intervallare ad un livello di conﬁdenza di 99% per α e β.
+```{r}
+a<-0.01
+BConfInt<- Beta + c(-1,1) * qt(1-a/2, df =38) * 4.096
+aConfInt<- alpha + c(-1,1) * qt(1-a/2, df = 38) * 7.839
+
+BConfInt
+aConfInt
+
+#contro prova
+confint(model,level = 1-a)
+```
+## 4. Quali sono le assunzioni necessarie per poter aver stime puntuali per i valori α e β? Quali ##    sono le assunzioni necessarie per poter ottenere delle stime intervallari per α e β?
+
+Le assunzioni da fare sono quella di una distribuzione normale dei rumori, quindi che epsilon~N(0,sd^2), indipendente da X e indipendente tra le osservazioni, sotto questa prima assunzione ne deriva che lo stimatore di alpha e Beta siano distribuite Normalmente
+
+## 5. Si aggiunga la retta delle relazione stimata tra alcohol e nitrogen al graﬁco ottenuto al         punto 1.
+
+```{r}
+plot(alcohol~nitrogen, data=grains, pch=16, col="orange")
+abline(model, col="red", lwd=2.5)
+```
+
+## 6. Il dataset contiene la variabile location. Si scriva in forma estesa il modello che R stima                 quando si usa la funzione lm(alcohol~location, data = grain).
+```{r}
+library(fastDummies)
+plot(nitrogen~location, data=grains)
+#grains<-transform(grains, Aberdeen = ifelse(location=="Aberdeen", 1, 0 ))
+#grains<-transform(grains, Berwicks = ifelse(location=="Berwicks", 1, 0 ))
+#grains<-transform(grains, E.Lothian = ifelse(location=="E.Lothian", 1, 0 ))
+#grains<-dummy_cols(grains, select_columns = "location")
+model_q <- lm (alcohol ~ (location) , data=grains)
+summary(model_q)
+```
+Considerando il valore del p-value della statistica F possiamo dire che è possibile rigettare l'ipotesi nulla : H0: mean_Aberdeen = mean_Berwicks = mean_E.Lothian = mean_Norfolk
+
+verificabile tramite l'analisi della varianza ANOVA
+
+Questo significa che location è un predittore statisticamente significativo
+
+## 7. E´ valida l’aﬀermazione che la variabile location spiega una buona parte della variabilit`a della variabile alcohol?
+
+```{r}
+aov(model_q)
+anova(model_q)
+```
+
+Cosiderando il modello sopra descritto e la seguente one way anova, per il valore della statistica F e del p-value estremamente basso pare che location abbia un impatto sulla variabile alcohol
+
+## 8. Se si aggiunge la variabile location al modello in eq. (1) in cui solo nitrogen era presente nel modello, l’aggiunta di location risulta signiﬁcativa? Come si pu`o misurare l’evidenza contro la non-inclusione di location nel modello?
+
+```{r}
+library(car)
+model2<-lm(alcohol~nitrogen+(location), data = grains)
+anova(model)
+anova(model2)
+anova(model, model2)
+
+
+
+
+```
+L'aggiunta delle variabile Location sembra aver si abbassato Residuals Standard Square RSS però sembra essere significativa ad un livello del 10%, più piccolo è il residuo mieglio il modello fitta con i dati
+
+## 9. Si produca un graﬁco della relazione tra location e nitrogen - cosa si pu`o notare?
+```{r}
+scatterplot(nitrogen~factor(location), data=grains)
+```
+Possiamo notare come la location pare essere significativa sulla quantità di idrogeno presente
+
+## 10. Come si spiega la diﬀerenza dei p-value per location nei modelli stimati al punto 6 e al          punto 8?
+
+```{r}
+step(model, scope = list(upper=model2), direction = "both", trace=1)
+```
+## 11. Usando il modello speciﬁcato in eq. (1): si predica il valore medio della resa di alcool         per del grano contenente il 1.9% e il 2.7% di azoto per kilogrammo.
+```{r}
+#alcohol ~ nitrogen
+predict(model, newdata = data.frame(nitrogen=c(1.9,2.7)), level = "prediction", se.fit = TRUE)
+```
+## 12. Si stimino gli intervalli di conﬁdenza al 95% per i valori medi della resa di alcool 11. Quale `e l’ampiezza di questi intervalli: si spieghi la diﬀerenza nell’ampiezza.
+       
+```{r}
+confInterval<-predict(model, newdata=data.frame(nitrogen=c(1.9,2.7)),interval = "confidence", level = 1-0.05/2)
+confInterval
+```
+il primo intervallo è più stretto rispetto al secondo poichè il valore di X=1.9 si avvicina molto a quella che è la media del campione
+\[
+\text{Confidence intervals: }\hat{m}(x) \pm t_{\alpha/2, n - 2} \times s_e\sqrt{\frac{1}{n}+\frac{(x-\bar{x})^2}{\sum_{i = 1}^n(x_i-\overline{x})^2}} 
+\]
+I parametri che influiscono sull'ampiezza dell'intervallo sono : 
+1)il livello di confidenza : \[t_{\alpha/2, n - 2}\]
+2)la numerosità del campione : \[n\]
+3)media: \[(x-\bar{x})^2\]
+
+
+## 13. Usando il modello speciﬁcato in eq. (1): si predica il valore eﬀettivo della resa di alcool per del grano contenente il 1.9% e il 2.7% di azoto per kilogrammo. Si dia una anche una valutazione degli intervalli predittivi al 95% per questi valori.
+```{r}
+p<-predict(model, newdata=data.frame(nitrogen=c(1.9,2.7)))
+predInterval<-predict(model, newdata=data.frame(nitrogen=c(1.9,2.7)),interval = "prediction", level = 1-0.05/2)
+p;predInterval
+```
+Come sappiamo l'intervallo di predizione risulta più ampio rispetto al relativo intervallo di confidenza,
+questo perchè l'intervallo di predizione tiene di conto della variabilità di Y  sqrt(1+...)
+
+
+
+

@@ -1,0 +1,164 @@
+---
+title: "Lab05"
+author: "Marco Bresciani"
+date: '2022-11-08'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Using categorial variable
+
+```{r}
+data(Prestige, package = "carData")
+plot(Prestige)
+```
+
+Un primo modello con education e income come predittori
+
+```{r}
+fit1<-lm(prestige ~ income + education, data=Prestige,subset = !is.na(Prestige$type))
+summary(fit1)
+
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(fit1)
+```
+
+```{r}
+#par(mfrow=c(2,2))
+#plot(residuals(fit1)~Prestige$women); abline(h=0)
+#plot(residuals(fit1)~Prestige$census); abline(h=0)
+#plot(residuals(fit1)~Prestige$type);abline(h=0)
+```
+
+```{r}
+fit_whtype<-update(fit1, . ~ . + type)
+fit_whcensus<-update(fit1, . ~ . +census)
+summary(fit_whtype)
+summary(fit_whcensus)
+```
+
+Sembra che type e census non siano significativi, proviamo a controllare con AIC
+
+```{r}
+AIC(fit1); AIC(fit_whtype); AIC(fit_whcensus)
+AIC(fit1, fit_whtype, fit_whcensus)
+anova(fit1, fit_whtype) #ci sono 4 valori mancanti per type - è fondamentale che il dataset sia lo stesso per tutti
+Prestige[is.na(Prestige$type),]
+#N.B si possono confrontare solo modelli stimati sullo stesso dataset
+#Nel nostro caso eliminiamo le 4 informazioni mancanti dal dataset (usiamo il parametro "subset" della fun lm a monte)
+fit1<-lm(prestige ~ income + education,data=Prestige, subset = !is.na(Prestige$type) )
+AIC(fit1); AIC(fit_whtype); AIC(fit_whcensus)
+AIC(fit1, fit_whtype, fit_whcensus)
+anova(fit1, fit_whtype)
+```
+
+```{r}
+head(model.matrix(fit_whtype))
+table(Prestige$type)
+fit_whtype$coefficients
+```
+
+A parità di income e education il prestigio di typeprof sale di 6 punti mentre quello di typewf scende di 2 punti
+
+```{r}
+plot(Prestige$income, Prestige$prestige)
+
+nd <- data.frame(income=seq(0,25000, by=100), education=mean(Prestige$education), type="prof")
+lines(nd$income, predict(fit_whtype,  newdata=nd), col=2)
+
+nd <- data.frame(income=seq(0,25000, by=100), education=mean(Prestige$education), type="wc")
+lines(nd$income, predict(fit_whtype,  newdata=nd), col=4)
+
+nd <- data.frame(income=seq(0,25000, by=100), education=mean(Prestige$education), type="bc")
+lines(nd$income, predict(fit_whtype,  newdata=nd), col=6)
+
+```
+
+Aggiungiamo l'interazione di type con le 2 variabili
+
+```{r}
+fit_intall <- lm(prestige ~ income*type + education*type, data=Prestige, subset=!is.na(Prestige$type))
+summary(fit_intall)
+```
+
+```{r}
+AIC(fit_intall, fit_whtype)
+anova(fit_whtype, fit_intall) 
+# anova verifica se: H0 : B1 ... Bn = 0 vs Ha : any B1 ... Bn != 0 (esiste almeno un parametro significativo)
+
+confint(fit_whtype, parm = "education")
+confint(fit_intall, parm = "education")
+
+```
+
+L'ampiezza dell'intervallo di confidenza del modello con l'interazione è aumentato molto questo ci indica che probabilmente stiamo sovra-parametrizzando
+
+Proviamo ora a costruire due modelli in cui l'interazione di type c'è solo con uno dei 2 parametri
+
+```{r}
+fit_inted<-lm(prestige~income+type + education*type, data=Prestige, subset=!is.na(Prestige$type))
+fit_intinc<-lm(prestige~income*type + education+type, data=Prestige, subset=!is.na(Prestige$type))
+
+summary(fit_inted)
+summary(fit_intinc)
+
+anova(fit_inted, fit_intall)
+anova(fit_intinc, fit_intall) #anova sceglie modelli significativi
+
+AIC(fit_inted, fit_intinc, fit_intall) #AIC sceglie un modello meno parsimonioso
+BIC(fit_inted, fit_intinc, fit_intall) #BIC sceglie il modello  più parsimonioso
+
+anova(fit_whtype,fit_intinc)#confrontiamo i modello additivo con quello con interazione
+
+
+
+```
+
+Scegliamo il modello fit_intic
+
+```{r}
+summary(fit_intinc)
+```
+
+i coefficenti angolari per 
+income:typeof = 0.0031344 - 0.0025102 = 0.0006242 
+income:typewc = 0.0031344 - 0.0014856 = 0.0016488
+
+\*cambiare livello di riferimento (cambiare parametro di riferimento tra wc bc prof) se interessati
+
+```{r}
+Prestige$newtype <- factor(Prestige$type, levels=c("wc", "bc", "prof"))
+table(Prestige$newtype)
+table(Prestige$type)
+
+coef(lm(prestige ~ income * newtype + education + newtype, data=Prestige,subset=!is.na(Prestige$newtype)))
+
+coef(fit_intinc)
+
+```
+
+GRAFICO DEL MODELLO STIMATO
+
+```{r}
+col_type <- rep(1 , length(Prestige$type))
+col_type[Prestige$type == "wc"] <- 4
+col_type[Prestige$type == "prof"] <- 2
+plot(Prestige$income, Prestige$prestige, pch=16, col=col_type)
+# education=10
+abline(a=coef(fit_intinc)[1]+coef(fit_intinc)[4]+ coef(fit_intinc)[5]*10,
+       b=coef(fit_intinc)[2]+coef(fit_intinc)[7], col=4)
+
+abline(a=coef(fit_intinc)[1]+coef(fit_intinc)[3]+ coef(fit_intinc)[5]*10,
+       b=coef(fit_intinc)[2]+coef(fit_intinc)[6], col=4)
+
+abline(a=coef(fit_intinc)[1] + coef(fit_intinc)[5]*10,
+       b=coef(fit_intinc)[2], col=1)
+
+
+```

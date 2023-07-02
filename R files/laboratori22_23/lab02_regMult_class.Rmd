@@ -1,0 +1,161 @@
+---
+title: "Lab 02 - Multiple Linear Regression - CLASS"
+output:
+  html_document:
+    theme: readable
+    toc: yes
+    code_folding: show
+---
+
+Il dataset che useremo riguarda dati di automobili - per poter usare il dataset rendiamo il dataset più approciabile con alcune manipolazioni:
+
+```{r, class.source = "fold-hide"}
+# read the data
+fl <- "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
+autompg = read.table(fl, quote = "\"",
+comment.char = "", stringsAsFactors = FALSE)
+# give the dataframe headers
+colnames(autompg) <- c("mpg", "cyl", "disp", "hp", "wt",
+"acc", "year", "origin", "name")
+# remove missing data, which is stored as "?"
+autompg <-subset(autompg, autompg$hp != "?")
+# remove the plymouth reliant, as it causes some issues
+autompg <- subset(autompg, autompg$name != "plymouth reliant")
+# give the dataset row names, based on the engine, year and name
+rownames(autompg) <- paste(autompg$cyl, "cylinder",
+autompg$year, autompg$name)
+# remove the variable for name, as well as origin
+autompg <- subset(autompg,
+select = c("mpg", "cyl", "disp", "hp", "wt", "acc", "year"))
+# change horsepower from character to numeric
+autompg$hp <- as.numeric(autompg$hp)
+```
+
+Desideriamo per ora stimare come le miles per gallon `mpg` varino in funzione del peso `wt` e dell'anno di produzione `year`.
+
+```{r dataplot}
+par(mfrow=c(1,2), bty="l",pch=16)
+plot(mpg~wt, data= autompg)
+plot(mpg~year, data= autompg)
+```
+
+# il Modello
+
+$$mpg =\beta0 + \beta1*wt + \beta2*year +\varepsilon$$ Usiamo la funzione lm
+
+```{r}
+fit<-lm(mpg ~ wt + year , data=autompg)
+summary(fit)
+#proprietà residui
+sum(residuals(fit)) # = 0
+cor(residuals(fit), autompg$wt) # = 0
+cor(residuals(fit), autompg$year) # = 0
+
+```
+
+il t value mi indica che wt incide di più su mpg di year poichè più piccolo rispetto al tvalue di year
+
+```{r}
+coef(fit) 
+#all'aumentare del peso più aumenta il consumo
+#più la macchina ' nuova meno consuma 
+```
+
+```{r}
+n <- nrow(autompg)
+X <- cbind(rep(1,n), autompg$wt, autompg$year)
+beta_hat<-solve(t(X)%*% X) %*% t(X) %*% autompg$mpg #solve -> inverte la matrice 
+beta_hat
+```
+
+```{r}
+resid<-(autompg$mpg - X %*% beta_hat)
+head(resid)
+sum(resid^2) #beta_hat(Beta0,Beta1,Beta2) mi minimizza la somma dei residui non esistono altri Beta0 Beta1 Beta2 che lo minimizzano
+```
+
+Stimiamo sigma\^2
+
+Dato che i residui sono una versione empirica degli errori possiamo usare qualcosa che ha a che fare con la varianza degli errori
+
+Incertezza nella stima di $\hat{\beta}$
+
+```{r}
+est_sigma <- sqrt(sum(residuals(fit)^2/(n-length(beta_hat))))
+est_sigma
+
+est_sigma^2 * solve(t(X) %*% X) #varianza di estimate_sigma
+matrix_variance<-sqrt(diag(est_sigma^2 * solve(t(X) %*% X))) #matrice varianza covarianva (R stampa la diagonale della matrice, ovvero le varianze)
+#posso estrarla con 
+vcov(fit)
+
+```
+
+```{r}
+TS<-(beta_hat[3] - 0)/matrix_variance[3]
+
+#pvalue
+2*pt(abs(TS), df= n-lenght(beta_hat), lower.tail = FALSE) #calcola la probabilità che la vriabile T abbia probabilità maggiore uguale
+#se la TS mi da un valore molto grande significa che l'ipotesi nulla è rifiutata che il Beta studiato sia = 0
+```
+
+In realtà tutte le informazioni sono contenute negli intervalli di confidenza
+
+Se un valore si trova nell'intervallo di confidenza non rifiuterò l'ipotesi nulla
+
+```{r}
+confint(fit)
+```
+
+```{r}
+confidenceEllipse(fit)
+```
+
+```{r}
+par(mrow=c(1,2))
+confidenceEllipse(fit, which=c(1,3))
+cov2cor(vcov(fit))#mi da la correlazione la matrice di correlazione a partire dalla matrixe di covarianza. Noto come ci sia una forte correlazione tra il Beta di year e l'intercetta
+
+```
+
+Una volta che il modello ci soddisfa allora possiamo calcolare il valore di $\hat{y}(x_0)$ e l'incertezza nella stima usando 'predict':
+
+-   Intervallo di confidenza per la funzione di regressione, per la predizione del valore atteso, la variabiità è quella del valore atteso
+
+```{r}
+nd<-data.frame(wt=c(1650,3000,5000), year=c(72,75,82))
+```
+
+```{r}
+predict(fit, newdata=nd, interval='confidence')
+```
+
+-   Intervallo di predizione attorno all valore stesso di y, tiene conto della variabilità di y
+
+```{r}
+predict(fit, newdata=nd, interval='prediction')
+```
+
+L'intervallo di predizione ha una maggiore ampiezza perchè deve tenere conto dell'incertezza della y stessa
+
+```{r}
+plot(autompg$wt, autompg$year, col = "gray70")
+points(nd$wt , nd$year, col="red")
+points(mean(autompg$wt), mean(autompg$year), col="orange", cex=1.5)
+```
+
+# VISUALIZZARE IL MODELLO
+
+```{r}
+par(mfrow=c(1,2), bty="l",pch=16)
+plot(mpg~wt, data= autompg, col="gray70")
+points(autompg$wt, fitted(fit))
+plot(mpg~year, data= autompg, col="gray70")
+points(autompg$year, fitted(fit))
+
+```
+
+```{r}
+nd2<-data.frame(wt=seq(1500,5000, by=100), year=85)
+lines(nd$wt, predict(fit, newdata = nd2), col="red")
+```

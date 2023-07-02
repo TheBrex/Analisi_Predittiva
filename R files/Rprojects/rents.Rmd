@@ -1,0 +1,54 @@
+---
+title: "rents"
+author: "Marco Bresciani"
+date: "20/9/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, include=FALSE}
+getwd()
+mrents <- read.table(file="./dataset/rent99.raw", header=TRUE)
+summary(mrents$rent)
+
+```
+
+```{r}
+hist(mrents$rent)
+abline(v = mean(mrents$rent), col="orange")
+abline(v = median(mrents$rent), col="purple")
+
+barplot(table(mrents$bath))
+```
+Notiamo che ci sono molti più bagni standard che premium: 2891 su 3082
+`r table(mrent$bath)[1]` bagni standard su `r nrow(mrents)`
+
+```{r}
+summary(mrents$rent[mrents$kitchen == 0])
+summary(mrents$rent[mrents$kitchen == 1])
+```
+```{r}
+boxplot(mrents$rent~mrents$kitchen)
+boxplot(mrents$rent~mrents$location)
+#vediamo dal boxplot che 
+```
+
+```{r}
+#Stesso grafico in 3 modi diversi ( cambiano solo le labels degli assi)
+plot(rent~area , data=mrents, pch=16, cex=1.2, col="darkred")
+plot(mrents$area, mrents$rent, pch=16, cex=1.2, col="darkred")
+#plot(mrents) <- genera un grafico con tutti i grafici che mettono in relazione tutte le var                    del dataset ( pericoloso su dataset troppo grandi )
+plot(mrents[, c("area", "rent")], pch=16, cex=1.2, col="darkred")
+title(main = "Rents in Monaco - relation between area and price")
+#notiamo che gli appartamenti piu grandi tendono a costare di piu
+```
+
+```{r}
+
+```
+

@@ -1,0 +1,49 @@
+---
+title: "cars"
+author: "Marco Bresciani"
+date: "20/9/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#dataset che indica lo spazio di frenata in base alla velocità corrente
+data("cars")
+plot(cars)
+```
+
+```{r}
+#Desideriamo stimare che abbia la forma $y=b_0 + b_1 x$
+plot(cars)
+#calcoliamo l'MSE per ogni retta per scegliere la migliore
+y <- cars$dist
+x <- cars$speed
+b0_1 <- -16 ; b1_1<-3
+b0_2 <- -17 ; b1_2 <- 4
+mse <- sum((y-(b0_1+b1_1 * x))^2)
+
+sumSq <- function(b0, b1, y, x){
+  observed<-y
+  modelled <- b0+(b1*x)
+  sum((observed-modelled)^2)
+}
+
+sumSq(b0_2, b0_1, y=cars$dist, x=cars$speed)
+sumSq(b0_1, b1_1, y=cars$dist, x=cars$speed)
+sumSq(b0_2, b1_2, y=cars$dist, x=cars$speed)
+
+#Lo devo fare per ogni retta ed estrarre il minimo
+#TODO:da finire
+
+```
+
+```{r}
+
+```
+
+

@@ -1,0 +1,100 @@
+---
+title: "Lab01"
+author: "Marco Bresciani"
+date: '2022-10-03'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Calcoliamo a mano i predittori ottimali Beta0 e Beta1
+Eliminiamo gli nan per semplicità in questo caso
+```{r}
+pengs<-na.omit(pengs) 
+plot(flipper_length_mm ~ body_mass_g, data=pengs )
+x<-pengs$body_mass_g
+y<-pengs$flipper_length_mm
+n<-length(x)
+s2x<- sum((x-mean(x))^2)/n
+s2y<- sum((y-mean(y))^2)/n
+covxy<-cov(x,y)
+rxy<-cor(x,y)
+mx<-mean(x) ; my<-mean(y)
+beta1<-rxy*sqrt(s2y/s2x)
+beta0<-my-beta1*mx
+abline(beta0, beta1, col=2, lwd=1.5)
+yhat<- beta0 +beta1*x # valori stimati
+sum((y-yhat)^2)#empirical MSE
+
+```
+Tutto può essere automatizzato dalla funzione lm
+```{r}
+model<-lm(flipper_length_mm ~ body_mass_g, data=pengs)
+summary(model) #errori dovrebbore essere simmetrici guardando i residui(quartili equidistanti)
+#Residuals std error è la varianza stimata degli errori
+
+```
+Calcoliamo a mano il residuals std. error
+```{r}
+se<- sqrt(sum((yhat-y)^2)/(n-2))
+se
+```
+Visualizziamo i valori stimati
+```{r}
+head(fitted(pengs),10)
+sqrt(sum(residuals(model)^2)/(n-2))#somma dei residui al quadrato / n-2 sotto radice
+                                 #utile per conoscere aspetti delle varianze di beta0 e beta1
+```
+Lo std. error dei residui serve a calcolare gli std error degli stimatori
+```{r}
+stdB1<-se/sqrt(n*s2x)#da correggere
+stdB0<-se*sqrt(1/n + mx^2/(n*s2x))
+summary(model)
+```
+Cosa succede se cambiamo da mm a cm?? Per le proprietà lineari del valore atteso cambiando unità di misura otteniamo lo stesso risultato
+
+fitted e predict su linear model
+```{r}
+head(fitted(model))#
+head(predict(model))#simile a fitted ma può resituire output su valori della x che non ho osservato(al contrario di fitted)
+pred_1<-predict(model, se.fit=TRUE)
+#più mi allontano dalla media di x e maggiore è l'incertezza sulla stima di y
+varmx<-(se^2/n)*(1+(x-mx)^2/s2x)
+plot(pengs$body_mass_g, pred_1$se.fit, pch=16, cex=1.2)
+points(pengs$body_mass_g, sqrt(varmx), col=2, pch=16)
+
+#predizione su nuovi dati
+nd<-data.frame(body_mass_g=c(2000,3000,8000,16000))
+pred_2<-predict(model, nd, se.fit = TRUE)
+
+plot(pengs$flipper_length_mm, pengs$body_mass_g, pch=16, col="grey60", xlim=c(2000,9000), ylim=range(pred_2$fit))
+points(nd$body_mass_g, col=2, pch=16) #da correggere
+
+```
+
+Simulazione come metodo per verificare la teoria
+il modello teorico dice che i residui devono essere:
+-omoscheidastici(varianza costante) a media0
+-iid
+```{r}
+#fase di generazione
+n<-30
+x<-seq(0,1, length.out=n)
+b0<-1 ; b1<-2
+error<-rexp(n,1)-1 #genera n osservazioni casuali da un'esponenziale di media 1
+y<- b0 + b1*x + error
+plot(x,y)
+coef(lm(y~x))
+
+set.seed(586328)
+out<-coef(lm(y~x)) #matrice dei risultati dei coefficenti
+for(j in 1:1000){
+  error<-rexp(n,1)-1
+  y<- b0 + b1*x + error
+  out<-rbind(out, coef(lm(y~x)))
+}
+hist(out[,1]); abline(v=b0, col=2)#ho stimato che in media gli stimatori hanno media 1
+hist(out[,2]); abline(v=b1, col=2)
+```
+

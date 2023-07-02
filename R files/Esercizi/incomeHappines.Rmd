@@ -1,0 +1,93 @@
+---
+title: "RentAnalysis"
+author: "Marco Bresciani"
+date: '2022-08-05'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# DataSet income happiness
+```{r}
+library(car)
+incomes<-read.csv("income.data.csv",  header=TRUE)
+summary(incomes)
+```
+# 1. Visualizzazione del modello
+```{r}
+fitIncome<-lm(happiness~income, data=incomes)
+plot(happiness~income, data=incomes, col="darkBlue", pch=16)
+abline(fitIncome, col="orange", lwd=2.5)
+
+```
+
+# 2. Analisi dei residui
+
+```{r}
+summary(fitIncome)
+#Analisi dei residui
+mean(residuals(fitIncome)) # 0
+par(mfrow=c(2,2))
+cor(residuals(fitIncome),incomes$income) #correlazione 0
+plot(residuals(fitIncome)~incomes$income, main="Correlazione")
+plot(residuals(fitIncome)~fitted(fitIncome), main="Varianza") #varianza omogenea
+hist(residuals(fitIncome), prob=TRUE, col="orange", main="distribuzione Residui")
+curve(dnorm(x,mean=0, sd=sd(residuals(fitIncome))), add=TRUE, col="red", lwd=2.5) #distribuzione normale
+qqPlot(fitIncome, main="qqPlot")
+```
+# 3. Predizione sul modello adattato
+```{r}
+pd<-predict(fitIncome, newdata=data.frame("income"=7.000))
+pd
+```
+# 4. Inferenza sul modello
+```{r}
+summary(fitIncome)
+
+# H0: B1 = 0 vs HA: B1 != 0
+# T = B1hat - 0 / SE(B1hat)
+Tbeta1 <- (0.71383 - 0) / (0.01854)
+
+# H0: B0 = 0 vs HA: B0 != 0
+# T = B0hat - 0 / SE(B0hat)
+Tbeta0<- (0.20427 - 0) / (0.01854)
+
+#calcolo del p-value B1 e B0
+p_valueB1 <- 2*(1-pt(abs(Tbeta1), df=496))
+p_valueB0 <- 2*(1-pt(abs(Tbeta0), df=496))
+
+```
+
+il valore del pvalue rasenta lo 0 nell'ipotesi bilaterare, quindi concludiamo che il predittore è 
+statisticamente significativo
+
+Trattandosi di un'ipotesi biLaterale è possibile verificarla attraverso gli intervalli di confidenza a un
+certo livello di significatività alpha, come segue:
+
+```{r}
+alpha<-0.01
+confint(fitIncome, level = 1-alpha)
+
+
+```
+Sappiamo cosi' che non è possibile rifiutare tutti i valori di un'ipotesi alternativa
+che rientrino nell'intervallo dell'intercetta(B0) e di income(B1) a un livello di significatività alpha
+
+4. Intervalli di previsione e confidenza del modello
+```{r}
+summary(incomes$income)
+new_x<-seq(1.506, 7.482, by = 0.05)
+predInt<-predict(fitIncome, newdata = data.frame("income" = new_x), interval = "prediction")
+confInt<-predict(fitIncome, newdata = data.frame("income" = new_x), interval = "confidence")
+
+plot(happiness~income, data=incomes, pch=16, col="darkGreen")
+abline(fitIncome, col="red", lwd=2.5)
+#disegna lower and upper bound conf interval
+lines(new_x, confInt[,2], col="blue", lty=2, lwd=1.5)
+lines(new_x, confInt[,3], col="blue", lty=2, lwd=1.5)
+#disegna lower and upper bound conf prediction
+lines(new_x, predInt[,2], col="orange", lty=2, lwd=1.5)
+lines(new_x, predInt[,3], col="orange", lty=2, lwd=1.5)
+```
+

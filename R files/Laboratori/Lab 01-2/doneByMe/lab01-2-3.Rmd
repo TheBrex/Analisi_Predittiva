@@ -1,0 +1,267 @@
+---
+title: "lab1"
+author: "Marco Bresciani"
+date: '2022-08-02'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# REGRESSIONE LINEARE SEMPLICE
+Il modello di regressione lineare non richiede né che la variabile dipendente (la y) né che le variabili indipendenti (le x) abbiano una distribuzione Normale.
+
+Quello che in realtà richiede il modello è che gli errori siano tra loro indipendenti ed identicamente distribuiti (in gergo tecnico i.i.d.) in modo approssimabile ad una distribuzione Normale con media pari a 0 e varianza pari a σ ²
+```{r}
+library(car)
+getwd()
+#Leggo il dataset Rent per l'affitto di case a Monaco
+tRents<-read.table("../../data/rent99.raw", header=TRUE)
+summary(tRents)
+#la variabile di interesse è "rent", visualizzamo la distribuzione con un ISTOGRAMMA
+hist(tRents$rent, xlab = "Rent")
+#visualizziamo media e mediana
+mean_tRents <- mean(tRents$rent)
+median_tRents <- median(tRents$rent)
+#tracciamole con comando "abline"
+hist(tRents$rent, xlab = "Rent")
+abline(v=mean_tRents, col=2, lwd=2) #v = vertical Line #h = horizontal line
+abline(v=median_tRents, col=4, lwd = 2)
+legend("topright", bty = "n", col = c(2,4),lwd = 2,
+       legend = c("mean","median"))
+```
+La maggior parte delle proprietà (2951 su 3082) ha una cucina standard.
+Il 95.7% delle proprietà è fornito di riscaldamento centrale.
+Ora indagare quali siano i fattori che influenzano il prezzo di affitto di una proprietà.
+Per esempio si possono confrontare alcune caratteristiche degli affitti per diversi tipi di cucina:
+```{r}
+summary(tRents$rent[tRents$kitchen==0]) #0 -> cucina standard
+summary(tRents$rent[tRents$kitchen==1]) #1 -> cucina premium
+boxplot(rent~kitchen, data=tRents)
+```
+notiamo il cambiamento del prezzo di affitto in relazione alla tipologia di cucina 
+proviamo a vedere come cambia per i bagni
+```{r}
+summary(tRents$rent[tRents$bath==0])
+summary(tRents$rent[tRents$bath==1])
+boxplot(rent~bath, data= tRents)
+```
+```{r}
+#invece per la location
+summary(tRents$rent[tRents$location==1])
+summary(tRents$rent[tRents$location==2])
+summary(tRents$rent[tRents$location==3])
+boxplot(rent~location, data=tRents)
+```
+
+volendo analizzare la relazione fra 2 o più variabli continue
+possiamo utilizzare un grafico a dispersione
+Mettiamo in relazione l'affitto con l'area dell'immobile
+```{r}
+par(mfrow=c(1,1))
+plot(rent~area, pch=16, data = tRents, col="darkGreen") #pch -> tipo di pallini
+```
+
+calcoliamo la retta di regressione stimata e disegnamola.
+"lm" stima modelli di regressione che minimizzano la somma dei quadrati:
+```{r}
+plot(rent~area, pch=16, data = tRents, col="darkGreen")
+mod<-lm(rent~area, data=tRents)
+abline(mod, col = "darkOrange", lwd = 2.5)
+
+```
+# 2 Predittori ottimali e regressione
+```{r}
+#usiamo il dataset cars di R
+data("cars")
+summary(cars)
+```
+Mettiamo in realzione le due variabili speed e dist
+```{r}
+plot(dist~speed, data = cars)
+```
+Notiamo la relazione lineare positiva, in quanto macchine che viaggiano a velocità maggiori necessitano di maggiore spazio di frenata
+
+```{r}
+plot(dist~speed, data = cars, pch=16, col="darkBlue")
+mod1<-lm(dist~speed,data=cars)
+abline(mod1, lwd=2.5, col="darkOrange")
+coef(mod1)
+summary(mod1)
+```
+Valori stimati dal modello:
+```{r}
+fitted(mod1)
+summary(fitted(mod1))
+```
+Analizziamo ora i residui: 
+I residui, detti anche scarti, rappresentano infatti le differenze tra i valori osservati nel dataset e i valori stimati calcolati con l’equazione di regressione "fitted(mod1)". In altre parole, i residui indicano la variabilità dei dati attorno alla retta di regressione.
+```{r}
+plot(residuals(mod1) ~ speed, data = cars)
+abline(h = 0, col = "red")
+```
+Dobbiamo verificare che i residui abbiano:
+1)media 0
+2)varianza costante
+3)distribuzione normale
+4)incorrelati tra loro
+
+
+**1.**
+```{r}
+mean(residuals(mod1)) #la media è 0
+```
+**2.**
+verifichiamo che la varianza sia omogenea
+```{r}
+var(residuals(mod1))
+cor(residuals(mod1),cars$speed) #non c'è correlazione
+plot(residuals(mod1)~fitted(mod1))
+```
+i punti tendono a disperdersi piu verso la parte destra del grafico ma sembra ok
+
+**3.**
+verificabile attraverso il grafico dei quantili qqPlot
+```{r}
+par(mfrow=c(1,2))
+qqPlot(residuals(mod1))
+
+hist(residuals(mod1), prob=TRUE, col="green")
+curve(dnorm(x,mean=0, sd=sd(residuals(mod1))), add=TRUE, lwd=2.5, col="darkBlue")
+summary(mod1)
+sd(residuals(mod1))
+```
+
+Tuttavia, l’ipotesi di normalità dei residui non è così importante come le altre ipotesi. Si dimostra infatti che, soprattutto per campioni numerosi, la regressione lineare è abbastanza robusta alla non Normalità distributiva degli errori.
+
+**4.**
+Le variabili indipendenti sono incorrelate con l’errore?
+Se una variabile esplicativa è correlata con il termine d’errore, puoi utilizzare questa variabile esplicativa per predire quale sarà l’errore del modello di regressione. E questo non va bene, perché la componente di errore di un modello di previsione deve essere imprevedibile.
+
+Per verificare se questo è il caso del tuo modello, devi costruire tanti grafici di dispersione quante solo le x del tuo modello di regressione. Sull’asse orizzontale devi mettere i valori della x, mentre sull’asse verticale i valori dei residui.
+```{r}
+plot(residuals(mod1)~cars$speed)
+```
+Osservando il grafico, l’ipotesi è confermata se non è individuabile nessuna relazione tra le due variabili.
+
+
+# 2 Previsione e incertezza
+Una volta che abbiamo un modello adattato, possiamo usarlo per fare previsioni sui valori di Y per diversi valori della covariata X. In R possiamo usare la funzione fitted per derivare il valore previsto per il campione usato per adattare il modello, mentre predict può essere utilizzato per derivare il valore stimato di Y per un valore diverso di X (sebbene per impostazione predefinita emetta i valori previsti alle x osservate).
+
+```{r}
+pr<-predict(mod1, newdata = data.frame(speed = 17), se.fit = TRUE)
+pr
+```
+# 3 Verifica delle ipotesi del modello
+Per ottenere le stime dei minimi quadrati dei coefficienti di regressione lineare non vengono fatte ipotesi forti: assumiamo solo che la relazione tra X e Y possa essere approssimata abbastanza bene da una funzione lineare. Per fare inferenza anche sui parametri del modello lineare e sulla funzione di regressione stimata vengono fatte alcune ipotesi aggiuntive, vale a dire
+
+Linearità (di nuovo):  $y_i = \beta_0 + \beta_1 x_i + \epsilon_i$
+Indipendenza e varianze uguali: ciascuna $\epsilon_i$ è indipendente dall'altro $\epsilon_j$ e Var($\epsilon_i$)=$\sigma^2$ per ogni $i$
+Non osserviamo gli errori di regressione ma osserviamo i residui del modello , ovvero la differenza tra i valori osservati e le stime (sotto il modello): $r_i = (y_i-\hat{y}_i)$. In R $r_i$ valori possono essere ottenuti usando la funzione residuals:
+
+
+```{r}
+par(mfrow=c(2,2))
+plot(mod1)
+
+```
+
+# 4 Inferenza per il modello lineare nell'ipotesi di errori normali
+Se si è pronti a fare l'ipotesi aggiuntiva che gli errori del modello lineare siano distribuiti secondo una distribuzione gaussiana, si può ricavare la distribuzione campionaria degli stimatori per i parametri del modello e per la previsione del modello. Questi possono quindi essere utilizzati per derivare intervalli di confidenza e test.
+
+Esiste una relazione tra intervalli di confidenza e test a due code, possiamo quindi studiare la verifica di ipotesi con gli intervalli di confidenza in particolare
+
+$$H_0: \beta_0 = 0 \quad VS \quad H_1: \beta_0 \neq 0$$
+e
+
+$$H_0: \beta_1 = 0 \quad VS \quad H_1: \beta_1 \neq 0$$
+```{r}
+tab<-summary(mod1)$coefficient
+Beta0<-tab[1,1]
+Beta1<-tab[2,1]
+SEBeta0<-tab[1,2]
+SEBeta1<-tab[2,2]
+
+```
+
+La statistica T sarà quindi calcolata:
+
+\[
+T = \frac{\hat{\beta}_0 - 0}{\mbox{SE}[\hat{\beta}_0]} 
+\]
+
+```{r}
+TB0<- (Beta0 - 0) / SEBeta0
+TB0
+```
+\[
+T = \frac{\hat{\beta}_1 - 0}{\mbox{SE}[\hat{\beta}_1]} 
+\]
+
+```{r}
+TB1<- (Beta1 - 0) / SEBeta1
+TB1
+```
+
+ricaviamoci il livello di significatività p-value nel caso di ipotesi bi-laterale,
+quindi:
+
+\[pvalue_{\beta0}=2*[1-Pr(T_{n-2} < |T|)]\]
+```{r}
+pvalue<-2*(1-pt(abs(TB0), df=48))
+pvalue
+```
+\[pvalue_{\beta1}=2*[1-Pr(T_{n-2} < |T|)]\]
+```{r}
+pvalue<-2*(1-pt(abs(TB1), df=48))
+pvalue
+```
+Rifiuteremo l'ipotesi dello scafo quando il valore p è "piccolo". I valori limite tipici per identificare un piccolo valore p possono essere 0,05 o 0,01.
+
+Se il test porta al rifiuto dell'ipotesi nulla allora il predittore è significativo
+
+Un altro modo (più informativo) per eseguire l'inferenza sui valori dei **parametri** consiste nell'utilizzare intervalli di confidenza (a livelli pre-specificati1 - a):
+
+```{r}
+alpha<-0.05
+confint(mod1, level = 1-alpha)
+```
+Sappiamo cosi' che non è possibile rifiutare tutti i valori di un'ipotesi alternativa
+che rientrino nell'intervallo dell'intercetta(B0) e di speed(B1) a un livello di significatività alpha
+
+
+La predict funzione consente di ottenere una previsione puntuale della funzione stimata per qualsiasi valore del predittore. È anche possibile ottenere intervalli di confidenza e di previsione: questi intervalli si basano su $T_{n-2}$ distribuzione e la loro costruzione dipendono anche dall'assunzione di errori gaussiani.
+
+Dobbiamo anche distinguere tra previsioni della risposta media futura e previsioni di osservazioni future. Pensando al fitmodello, ci sono due tipi di previsioni che possono essere fatte per un dato $speed_0$:
+
+```{r}
+#intervalli di confidenza e predizione per valori di velocità singoli
+confInterval<-predict(mod1, newdata=data.frame(speed=c(4,15,22)),interval = "confidence")
+
+predInterval<-predict(mod1, newdata=data.frame(speed=c(4,15,22)),interval = "prediction")
+
+confInterval
+predInterval
+
+#intervalli di confidenza e predizione per velocità del dataset
+new_x<-seq(4.0,25.0, by=0.5)
+confInterval_x<-predict(mod1, newdata=data.frame("speed"=new_x),interval = "confidence")
+predInterval_x<-predict(mod1, newdata=data.frame("speed"=new_x),interval = "prediction")
+
+plot(dist~speed, data=cars, col="red", pch=16)
+abline(mod1, col="black", lwd=1.5)
+#lower Line, colonna dei lower
+lines(new_x,confInterval_x[,2], col="blue", lty=2)
+#upper Line, colonna degli upper
+lines(new_x,confInterval_x[,3], col="blue", lty=2)
+
+#lower Line, colonna dei lower
+lines(new_x,predInterval_x[,2], col="orange", lty=2)
+#upper Line, colonna degli upper
+lines(new_x,predInterval_x[,3], col="orange", lty=2)
+```
+
+
+
+
+
